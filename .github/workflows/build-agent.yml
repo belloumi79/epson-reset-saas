@@ -39,6 +39,7 @@ jobs:
           pip install -r agent/requirements.txt
 
       - name: Build with PyInstaller
+        shell: bash
         run: |
           cd agent
           pyinstaller \
