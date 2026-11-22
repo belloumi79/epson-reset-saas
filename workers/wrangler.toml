@@ -1,0 +1,22 @@
+name = "epson-reset-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-20"
+
+[[durable_objects.bindings]]
+name = "AGENT_WS"
+class_name = "AgentWebSocket"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "epson-reset-db"
+database_id = "a6649790-65c5-4508-aec3-b8b57134c6d9"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "fbcde8db965e4bad80a5eb9c81a98e5d"
+
+[vars]
+FRONTEND_URL = "https://epson-reset.belloumi.com"
+
+[exports]
+AgentWebSocket = { type = "durable-object", storage = "sqlite" }

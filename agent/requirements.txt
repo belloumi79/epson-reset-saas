@@ -1,0 +1,3 @@
+websockets>=12.0
+pyusb>=1.2.0
+epson-usb>=0.1.2

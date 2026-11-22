@@ -1,0 +1,79 @@
+name: Build Agent
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact: epson-reset-agent-linux
+            platform: linux
+          - os: windows-latest
+            artifact: epson-reset-agent-windows.exe
+            platform: windows
+          - os: macos-latest
+            artifact: epson-reset-agent-macos
+            platform: macos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+          pip install -r agent/requirements.txt
+
+      - name: Clone epson-ink-pad-reset (Linux only)
+        if: matrix.platform == 'linux'
+        run: |
+          mkdir -p agent/vendor
+          git clone https://github.com/eAvio/epson-ink-pad-reset.git agent/vendor/epson-ink-pad-reset
+
+      - name: Build with PyInstaller
+        run: |
+          cd agent
+          pyinstaller \
+            --onefile \
+            --name "${{ matrix.artifact }}" \
+            --add-data "core:core" \
+            --add-data "vendor/epson-ink-pad-reset:vendor/epson-ink-pad-reset" \
+            --hidden-import epson_usb \
+            --hidden-import usb.backend.libusb1 \
+            --hidden-import websockets \
+            main.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: agent/dist/${{ matrix.artifact }}*
+          retention-days: 30
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./artifacts/**/*
+          generate_release_notes: true
