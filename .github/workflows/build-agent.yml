@@ -36,12 +36,6 @@ jobs:
           pip install pyinstaller
           pip install -r agent/requirements.txt
 
-      - name: Clone epson-ink-pad-reset (Linux only)
-        if: matrix.platform == 'linux'
-        run: |
-          mkdir -p agent/vendor
-          git clone https://github.com/eAvio/epson-ink-pad-reset.git agent/vendor/epson-ink-pad-reset
-
       - name: Build with PyInstaller
         run: |
           cd agent
@@ -49,7 +43,6 @@ jobs:
             --onefile \
             --name "${{ matrix.artifact }}" \
             --add-data "core:core" \
-            --add-data "vendor/epson-ink-pad-reset:vendor/epson-ink-pad-reset" \
             --hidden-import epson_usb \
             --hidden-import usb.backend.libusb1 \
             --hidden-import websockets \
