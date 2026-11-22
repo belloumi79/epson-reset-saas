@@ -19,6 +19,62 @@ type Status = 'idle' | 'loading' | 'resetting' | 'done' | 'error'
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://api.epson-reset.belloumi.com'
 
+// Modèles Epson supportés avec leurs séries
+const SUPPORTED_MODELS = [
+  { series: 'L3110 / L3150 / L3160 / L5190', models: ['L3110', 'L3150', 'L3160', 'L5190'], status: '✅ Testé' },
+  { series: 'L3210 / L3250 / L3260', models: ['L3210', 'L3250', 'L3260'], status: '✅ Testé' },
+  { series: 'L120 / L130 / L220 / L310 / L360 / L365 / L565', models: ['L120', 'L130', 'L220', 'L310', 'L360', 'L365', 'L565'], status: '✅ Configuré' },
+  { series: 'L210 / L350 / L355', models: ['L210', 'L350', 'L355'], status: '✅ Configuré' },
+  { series: 'L375 / L380 / L385 / L395 / L405', models: ['L375', 'L380', 'L385', 'L395', 'L405'], status: '✅ Configuré' },
+  { series: 'L455 / L475 / L495 / L575', models: ['L455', 'L475', 'L495', 'L575'], status: '✅ Configuré' },
+  { series: 'L396 (compteurs étendus)', models: ['L396'], status: '✅ Configuré' },
+  { series: 'L1300 (A3+)', models: ['L1300'], status: '✅ Configuré' },
+  { series: 'Autres séries Lxxx', models: ['Voir liste complète sur GitHub'], status: '🔧 Configurable' },
+]
+
+const STEPS = [
+  { 
+    number: 1, 
+    title: 'Vérifier la compatibilité', 
+    desc: 'Votre modèle Epson doit apparaître dans la liste ci-dessous. Si ce n\'est pas le cas, l\'agent tentera quand même la détection automatique.' 
+  },
+  { 
+    number: 2, 
+    title: 'Télécharger l\'agent', 
+    desc: 'Cliquez sur le lien correspondant à votre système (Linux, Windows, macOS). L\'agent est un fichier unique, sans installation.' 
+  },
+  { 
+    number: 3, 
+    title: 'Brancher l\'imprimante', 
+    desc: 'Connectez l\'imprimante en USB (câble fourni), allumez-la. Fermez les autres logiciels d\'impression (CUPS, EPSON Software).' 
+  },
+  { 
+    number: 4, 
+    title: 'Lancer l\'agent', 
+    desc: 'Ouvrez un terminal et lancez : <code>./epson-reset-agent-linux --backend wss://api.epson-reset.belloumi.com</code> (adaptez selon votre OS).' 
+  },
+  { 
+    number: 5, 
+    title: 'Sélectionner l\'imprimante', 
+    desc: 'Revenez sur cette page, votre imprimante apparaîtra dans le tableau. Cliquez sur "Sélectionner".' 
+  },
+  { 
+    number: 6, 
+    title: 'Lire les compteurs', 
+    desc: 'Les valeurs actuelles des tampons (Main pad, Platen pad) s\'affichent. Vérifiez qu\'elles sont élevées (proches de la saturation).' 
+  },
+  { 
+    number: 7, 
+    title: 'Réinitialiser', 
+    desc: 'Cliquez sur "♻️ RÉINITIALISER". L\'agent écrit les valeurs zéro dans l\'EEPROM de l\'imprimante.' 
+  },
+  { 
+    number: 8, 
+    title: 'Power cycle obligatoire', 
+    desc: '<strong>Éteignez l\'imprimante 10 secondes minimum, puis rallumez-la.</strong> Le clignotement orange doit cesser.' 
+  },
+]
+
 function App() {
   const [agentId, setAgentId] = useState<string>(() => localStorage.getItem('epson_agent_id') || '')
   const [printers, setPrinters] = useState<Printer[]>([])
@@ -26,6 +82,8 @@ function App() {
   const [counters, setCounters] = useState<Counter[]>([])
   const [status, setStatus] = useState<Status>('idle')
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
+  const [showModels, setShowModels] = useState(false)
+  const [showSteps, setShowSteps] = useState(true)
 
   useEffect(() => {
     if (!agentId) {
@@ -112,9 +170,87 @@ function App() {
     <div className="container">
       <header style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: 8 }}>🖨️ Epson Waste Ink Reset</h1>
-        <p style={{ color: '#6b7280' }}>Remettez à zéro les compteurs d\'encre usagée gratuitement</p>
+        <p style={{ color: '#6b7280' }}>Remettez à zéro les compteurs d\'encre usagée gratuitement — Open Source, sans clé d\'activation</p>
       </header>
 
+      {/* ÉTAPES */}
+      <details className="card" open={showSteps} onToggle={() => setShowSteps(!showSteps)}>
+        <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: '1.3rem' }}>📋</span>
+          Étapes à suivre (cliquez pour masquer/afficher)
+        </summary>
+        <div style={{ marginTop: 16 }}>
+          <ol style={{ paddingLeft: 20, lineHeight: 2 }}>
+            {STEPS.map((step) => (
+              <li key={step.number} style={{ marginBottom: 16, paddingLeft: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <span style={{ 
+                    background: '#2563eb', color: 'white', 
+                    width: 28, height: 28, borderRadius: '50%', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 700, fontSize: '0.9rem', flexShrink: 0
+                  }}>
+                    {step.number}
+                  </span>
+                  <div>
+                    <strong style={{ fontSize: '1rem' }}>{step.title}</strong>
+                    <div dangerouslySetInnerHTML={{ __html: step.desc }} style={{ marginTop: 4, color: '#4b5563', fontSize: '0.95rem' }} />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div style={{ marginTop: 16, padding: 12, background: '#fef3c7', borderRadius: 8, border: '1px solid #f59e0b' }}>
+            <strong>⚠️ Important :</strong> Le reset logiciel ne vide <strong>PAS</strong> le tampon physique. 
+            Si l\'éponge est saturée, l\'encre fuira par le bas. Prévoyez le remplacement du tampon ou l\'installation d\'un bac externe.
+          </div>
+        </div>
+      </details>
+
+      {/* MODÈLES SUPPORTÉS */}
+      <details className="card" open={showModels} onToggle={() => setShowModels(!showModels)}>
+        <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: '1.3rem' }}>🖨️</span>
+          Modèles Epson supportés (cliquez pour masquer/afficher) — {SUPPORTED_MODELS.length} séries
+        </summary>
+        <div style={{ marginTop: 16 }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ background: '#f9fafb' }}>
+                  <th style={{ textAlign: 'left', padding: '10px' }}>Série / Famille</th>
+                  <th style={{ textAlign: 'left', padding: '10px' }}>Modèles inclus</th>
+                  <th style={{ textAlign: 'center', padding: '10px' }}>Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SUPPORTED_MODELS.map((s) => (
+                  <tr key={s.series} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <td style={{ padding: '10px', fontWeight: 500 }}>{s.series}</td>
+                    <td style={{ padding: '10px', color: '#4b5563' }}>
+                      {s.models.map((m, j) => (
+                        <span key={j} style={{ 
+                          display: 'inline-block', background: '#e5e7eb', 
+                          padding: '2px 8px', borderRadius: 4, margin: '2px', fontSize: '0.8rem' 
+                        }}>
+                          {m}
+                        </span>
+                      ))}
+                    </td>
+                    <td style={{ padding: '10px', textAlign: 'center' }}>{s.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ marginTop: 12, fontSize: '0.85rem', color: '#6b7280' }}>
+            📌 <strong>Votre modèle n\'est pas dans la liste ?</strong> L\'agent tente la détection automatique via l\'USB. 
+            Si le reset échoue, ouvrez une issue sur <a href="https://github.com/belloumi79/epson-reset-saas/issues" target="_blank" rel="noopener" className="underline">GitHub</a> avec votre VID:PID (ex: 04b8:1142).
+          </p>
+        </div>
+      </details>
+
+      {/* AGENT ID & DOWNLOADS */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
           <div>
@@ -137,6 +273,7 @@ function App() {
         </div>
       )}
 
+      {/* IMPRIMANTES DÉTECTÉES */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Imprimantes détectées</h2>
@@ -150,6 +287,7 @@ function App() {
             <p style={{ fontSize: '0.875rem', marginTop: 8 }}>
               • USB branché ? • Imprimante allumée ? • Agent lancé ?
             </p>
+            <button onClick={loadPrinters} className="mt-4 btn btn-primary" disabled={status !== 'idle'}>Rafraîchir</button>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -192,6 +330,7 @@ function App() {
         )}
       </div>
 
+      {/* COMPTEURS & RESET */}
       {selected && counters.length > 0 && (
         <div className="card">
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: 16 }}>
@@ -245,6 +384,13 @@ function App() {
           </p>
         </div>
       )}
+
+      {/* FOOTER INFO */}
+      <div style={{ marginTop: 24, padding: 16, background: '#f9fafb', borderRadius: 8, textAlign: 'center', fontSize: '0.85rem', color: '#6b7280' }}>
+        <p>Open Source • <a href="https://github.com/belloumi79/epson-reset-saas" target="_blank" rel="noopener" className="underline">Code sur GitHub</a> • 
+        Basé sur <a href="https://codeberg.org/atufi/reinkpy" target="_blank" rel="noopener" className="underline">reinkpy</a> & 
+        <a href="https://github.com/onur-kesim/epson-usb" target="_blank" rel="noopener" className="underline">epson-usb</a></p>
+      </div>
     </div>
   )
 }
